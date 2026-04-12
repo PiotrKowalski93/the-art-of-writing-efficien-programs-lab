@@ -3,8 +3,6 @@
 This repository contains hands-on experiments and implementations based on the book *"The Art of Writing Efficient Programs"*.
 The goal is not just to read, but to **understand performance at a low level** by building, measuring, and analyzing real code.
 
----
-
 ## Objectives
 
 * Understand how modern CPUs execute code
@@ -12,8 +10,6 @@ The goal is not just to read, but to **understand performance at a low level** b
 * Learn how to write **predictable and efficient code**
 * Measure performance using benchmarks instead of assumptions
 * Build intuition useful for **low-latency systems**
-
----
 
 ## What’s inside
 
@@ -27,16 +23,12 @@ The goal is not just to read, but to **understand performance at a low level** b
   * Memory layout
   * Compiler optimizations
 
----
-
 ## Tech stack
 
 * C / C++
 * CMake
 * Google Benchmark
 * Linux, Ubuntu
-
----
 
 ## 📖 Reference
 
