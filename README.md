@@ -30,6 +30,20 @@ The goal is not just to read, but to **understand performance at a low level** b
 * Google Benchmark
 * Linux, Ubuntu
 
-## 📖 Reference
+## Reference
 
 * *The Art of Writing Efficient Programs* by Fedor G. Pikus
+
+
+## Setup
+
+```
+sudo apt install clang-17
+clang++-17 --version
+```
+
+AVX2 Support check:
+
+```
+lscpu | grep avx2
+```
