@@ -7,7 +7,7 @@
 #include <random>
 #include <vector>
 
-#include "compare_1.h"
+#include "compare.h"
 
 using std::chrono::duration_cast;
 using std::chrono::milliseconds;
@@ -21,7 +21,7 @@ using std::vector;
 bool compare(const char* s1, const char* s2, unsigned int l);
 
 int main() {
-    constexpr unsigned int L = 1 << 18, N = 1 << 14;
+    constexpr unsigned int L = 1 << 20, N = 1 << 16;
 
     cout << "L:" << L << endl;
     cout << "N:" << N << endl;
@@ -48,7 +48,7 @@ int main() {
     std::sort(vs.begin(), vs.end(), 
         [&](const char* a, const char* b){
             ++count;
-            return compare(a, b);
+            return compare(a, b, L);
         });
 
     system_clock::time_point t2 = system_clock::now();

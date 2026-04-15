@@ -1,3 +1,11 @@
+How to install newest version of pprof
+
+```
+$ sudo apt install golang-go
+$ go install github.com/google/pprof@latest
+$ export PATH=$PATH:$(go env GOPATH)/bin
+```
+
 We have to compile program with **-lprofile** param.
 
 ```
@@ -13,7 +21,7 @@ $ CPUPROFILE=prof.data CPUPROFILE_FREQUENCY=1000 ./example
 To see into data: 
 
 ```
-$ google-pprof ./example prof.data
+$ pprof ./example prof.data
 
 (pprof) text                        
 Total: 343 samples
@@ -42,3 +50,10 @@ Total: 343 samples
       11   3.2%  51.6%       11   3.2% do_sin ./math/../sysdeps/ieee754/dbl-64/s_sin.c:143
 ```
 
+Prepare graph:
+
+```
+pprof --pdf ./example prof.data > prof.pdf
+```
+
+![alt text](image.png)

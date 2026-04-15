@@ -20,7 +20,7 @@ clang++-17 -v -g -O3 -mavx2 -Wall -pedantic  program.cpp -lprofiler -o example01
 - ```-lprofiler``` - Enables CPU Profiling. It hooks the necessary functions into executable to allow for performance profiling.
 
 ```
-CPUPROFILE=prof.data ./example
+CPUPROFILE=prof.data ./example01
 ```
 
 Read data:
@@ -92,7 +92,7 @@ N:65536
 Sort time: 422ms (1262836 comparisons)
 PROFILE: interrupts/evictions/bytes = 42/0/2272
 
-$ google-pprof --text ./example01 prof.data
+$ pprof --text ./example01 prof.data
 Using local file ./example01.
 Using local file prof.data.
 Total: 42 samples
