@@ -18,3 +18,4 @@ $ perf record ./example
 $ perf report
 ```
 We can see assembler and % of execution time per line.
+To see assembler for function pres **a**
