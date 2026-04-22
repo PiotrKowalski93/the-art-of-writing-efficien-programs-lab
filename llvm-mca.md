@@ -208,3 +208,41 @@ Average Wait times (based on the timeline view):
 5.     10    11.5   0.0    0.0       add        qword ptr [rsp], rdx
        10    7.5    2.0    4.1       <total>
 ```
+
+## Thoughs
+
+A key observation when analyzing code with **llvm-mca**:
+
+```cpp
+// Case 1
+a1 += p1[i] + p2[i];
+
+// Case 2
+a1 += p1[i] + p2[i];
+a2 += p1[i] * p2[i];
+```
+
+At first glance, Case 2 has ~2× more instructions, so it might seem slower.
+However, modern CPUs are **superscalar** and can execute multiple independent instructions in parallel.
+
+* **Case 1** forms a dependency chain:
+
+  ```
+  load → add → add → store
+  ```
+
+  Each instruction depends on the previous one → CPU must wait → low IPC.
+
+* **Case 2** introduces independent work:
+
+  ```
+  (a1 path) load → add → add
+  (a2 path) load → mul → add
+  ```
+
+  These can execute in parallel → better utilization of execution units → higher IPC.
+
+**Takeaway:**
+
+> Performance is not just about instruction count.
+> Independent operations enable parallel execution and can significantly improve throughput.
