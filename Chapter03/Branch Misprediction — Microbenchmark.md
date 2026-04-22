@@ -4,11 +4,11 @@ Evaluate the performance impact of branch misprediction compared to branch-free 
 
 ## Setup
 
-Language: C++
-Compiler: clang++-17 -O3 -mavx2
-Dataset size: N = 2^22 (~4M elements)
-Hardware: 12-core CPU @ 4.8 GHz
-Benchmark framework: Google Benchmark
+- Language: C++
+- Compiler: clang++-17 -O3 -mavx2
+- Dataset size: N = 2^22 (~4M elements)
+- Hardware: 12-core CPU @ 4.8 GHz
+- Benchmark framework: Google Benchmark
 
 ```bash
 $ export GBENCH_DIR=/home/kowal/Desktop/Git/google-benchmark
@@ -39,10 +39,10 @@ BM_branch_not_predicted/4194304   13138481 ns     13118759 ns           57 items
 | Unpredictable branch | ~13.1 ms | ~320M ops/sec  |
 
 ## Key Insights
-Modern CPUs rely heavily on branch prediction to keep pipelines full
-When prediction fails:
+Modern CPUs rely heavily on branch prediction to keep pipelines full. When prediction fails:
 - pipeline is flushed
 - speculative work is discarded
+
 Even though the second loop does similar logical work, it is much slower due to control flow, not computation.
 
 ## Takeaway
@@ -51,16 +51,12 @@ Control flow is often more expensive than computation.
 Designing code for performance is not just about fewer operations —
 it's about writing code that the CPU can execute predictably and continuously.
 
-### Instruction pipelining
-
-Instruction pipelining is a CPU optimization technique where multiple instruction stages (fetch, decode, execute, etc.) are processed in parallel, similar to an assembly line.
+**Instruction pipelining:** is a CPU optimization technique where multiple instruction stages (fetch, decode, execute, etc.) are processed in parallel, similar to an assembly line.
 Instead of waiting for one instruction to fully complete, the CPU overlaps execution of multiple instructions, significantly increasing throughput.
 
 **Keep the CPU busy by working on different stages of multiple instructions at the same time.**
 
-### Out-of-order execution
-
-Out-of-order execution (OoO) allows the CPU to execute instructions in a different order than they appear in the program, as long as data dependencies are respected.
+**Out-of-order execution:** (OoO) allows the CPU to execute instructions in a different order than they appear in the program, as long as data dependencies are respected.
 If one instruction is waiting (e.g., for memory), the CPU can execute other independent instructions instead of stalling.
 
 **Maximize CPU utilization by dynamically reordering instructions to avoid idle cycles.**
