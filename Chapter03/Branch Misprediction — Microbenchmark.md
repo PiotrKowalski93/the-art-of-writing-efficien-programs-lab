@@ -29,6 +29,7 @@ Benchmark                                Time             CPU   Iterations UserC
 ------------------------------------------------------------------------------------------
 BM_add_multiply/4194304            3102217 ns      3101910 ns          228 items_per_second=1.35217G/s
 BM_branch_not_predicted/4194304   13138481 ns     13118759 ns           57 items_per_second=319.718M/s
+BM_branch_predicted/4194304        2781418 ns      2780728 ns          253 items_per_second=1.50835G/s
 ```
 
 ## Results
@@ -37,6 +38,7 @@ BM_branch_not_predicted/4194304   13138481 ns     13118759 ns           57 items
 | -------------------- | -------- | -------------- |
 | Branch-free          | ~3.1 ms  | ~1.35B ops/sec |
 | Unpredictable branch | ~13.1 ms | ~320M ops/sec  |
+| Predictable branch   | ~2.7 ms  | ~1.50M ops/sec |
 
 ## Key Insights
 Modern CPUs rely heavily on branch prediction to keep pipelines full. When prediction fails:
@@ -61,3 +63,8 @@ If one instruction is waiting (e.g., for memory), the CPU can execute other inde
 
 **Maximize CPU utilization by dynamically reordering instructions to avoid idle cycles.**
 
+**Branch prediction:** A CPU technique that guesses the outcome of a branch (e.g. if statement) before it is known, so execution can continue without waiting.
+
+**Speculative execution:** The CPU executes instructions ahead of time based on branch prediction. If the prediction was correct → results are kept. If wrong → results are discarded.
+
+**Pipeline flush:** When a branch prediction is wrong, the CPU must discard all speculatively executed instructions and restart from the correct path. This causes a performance penalty (wasted cycles).
