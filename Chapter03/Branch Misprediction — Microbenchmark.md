@@ -38,7 +38,7 @@ BM_branch_predicted/4194304        2781418 ns      2780728 ns          253 items
 | -------------------- | -------- | -------------- |
 | Branch-free          | ~3.1 ms  | ~1.35B ops/sec |
 | Unpredictable branch | ~13.1 ms | ~320M ops/sec  |
-| Predictable branch   | ~2.7 ms  | ~1.50M ops/sec |
+| Predictable branch   | ~2.7 ms  | ~1.50B ops/sec |
 
 ## Key Insights
 Modern CPUs rely heavily on branch prediction to keep pipelines full. When prediction fails:
