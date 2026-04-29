@@ -72,9 +72,24 @@ void BM_sequential_write(benchmark::State& state){
 // 1<<10 = 1024 (1KB)
 // 1<<30 = 1 073 741 824 (1GB)
 // We run benchmark dubeling word size to read each run from 1KB to 1GB
-#define ARGS ->RangeMultiplier(2)->Range(1<<10, 1<<30)->Threads(1)->Threads(2)
+#define ARGS ->RangeMultiplier(2) \
+    ->Range(1<<10, 1<<30) \
+    ->Threads(1) \
+    ->Threads(2) \
+    ->Threads(3) \
+    ->Threads(4) \
+    ->Threads(5) \
+    ->Threads(6) \
+    ->Threads(7) \
+    ->Threads(8) \
+    ->Threads(9) \
+    ->Threads(10) \
+    ->Threads(11) \
+    ->Threads(12) \
+
+    
 
 BENCHMARK_TEMPLATE1(BM_sequential_write, unsigned long) ARGS;
-BENCHMARK_TEMPLATE1(BM_sequential_read, unsigned long) ARGS;
+// BENCHMARK_TEMPLATE1(BM_sequential_read, unsigned long) ARGS;
 
 BENCHMARK_MAIN();
