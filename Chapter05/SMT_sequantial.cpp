@@ -75,4 +75,6 @@ void BM_sequential_write(benchmark::State& state){
 #define ARGS ->RangeMultiplier(2)->Range(1<<10, 1<<30)->Threads(1)->Threads(2)
 
 BENCHMARK_TEMPLATE1(BM_sequential_write, unsigned long) ARGS;
-// BENCHMARK_TEMPLATE1(BM_sequential_read, unsigned long) ARGS;
+BENCHMARK_TEMPLATE1(BM_sequential_read, unsigned long) ARGS;
+
+BENCHMARK_MAIN();
