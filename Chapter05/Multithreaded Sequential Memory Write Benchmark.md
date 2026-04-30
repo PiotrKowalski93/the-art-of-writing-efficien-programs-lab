@@ -51,3 +51,15 @@ This indicates a transition from **compute-bound** to **memory-bound**
 - Increasing thread count beyond a certain point leads to:
     - contention
     - no real performance gain
+
+The transition from L2 to L3 introduces a fundamental architectural shift:
+
+- L1/L2 are private per core → near-linear scaling
+- L3 is a shared resource → contention and coherence overhead emerge
+
+This results in:
+- reduced scaling efficiency
+- increased memory access latency
+- early signs of bandwidth saturation before reaching DRAM
+
+This effect is especially visible in multi-threaded workloads where threads operate on independent memory regions but still share the last-level cache.
