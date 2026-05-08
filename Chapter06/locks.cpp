@@ -14,6 +14,7 @@ void BM_mutex(benchmark::State& state){
         std::lock_guard lock_(m);
         ++count;
     }
+    state.SetItemsProcessed(state.iterations());
 }
 
 std::atomic<size_t> count_seq = 0;
@@ -21,6 +22,7 @@ void BM_atomic_seq_cast(benchmark::State& state){
     for(auto _ : state){
         ++count_seq;
     }
+    state.SetItemsProcessed(state.iterations());
 }
 
 std::atomic<size_t> count_rlx = 0;
@@ -28,6 +30,7 @@ void BM_atomic_relaxed(benchmark::State& state){
     for(auto _ : state){
         count_rlx.fetch_add(1, std::memory_order_relaxed);
     }
+    state.SetItemsProcessed(state.iterations());
 }
 
 std::atomic<size_t> count_cas_strong = 0;
@@ -45,9 +48,8 @@ void BM_CAS_strong(benchmark::State& state){
         {
             //++local_retries;
         }
-
     }
-
+    state.SetItemsProcessed(state.iterations());
     //state.counters["per_thread_retries"] = local_retries;
 }
 
@@ -67,8 +69,57 @@ void BM_CAS_weak(benchmark::State& state){
             //++local_retries;
         }
     }
-
+    state.SetItemsProcessed(state.iterations());
     //state.counters["per_thread_retries"] = local_retries;
+}
+
+
+class Spinlock{
+    public:
+        void lock(){
+            // (1) flag_.load(std::memory_order_relaxed) - first, fast check if flag is locked
+            // (2) flag_.exchange(1, std::memory_order_acquire) - expensive, exchange = locking
+            // if (1) is 1 then exchange (2) is not done, faster
+
+            // if flag_.exchange(1, std::memory_order_acquire) returns 0, and load returns 0, then we locked
+            // we use relaxed during load, beacuse it is more efficient, we do not need mem sync
+            for (int i = 0; flag_.load(std::memory_order_relaxed) || flag_.exchange(1, std::memory_order_acquire); ++i)
+            {
+                if(i == 8){
+                    lock_sleep();
+                    i = 0;
+                }
+            }
+        }
+
+        void unlock(){
+            flag_.exchange(0, std::memory_order_release);
+        }
+
+    private:
+        // 0 - free, 1 - locked
+        std::atomic<unsigned int> flag_;
+
+        void lock_sleep(){
+            static const timespec ns = {0, 1,};
+            nanosleep(&ns, NULL);
+        }
+};
+
+Spinlock spinlock;
+size_t count_x = 0;
+
+void BM_spinlock(benchmark::State& state) {
+    if (state.thread_index() == 0) {
+        count_x = 0;
+    }
+
+    for (auto _ : state) {
+        std::lock_guard<Spinlock> L(spinlock);
+        benchmark::DoNotOptimize(++count_x);
+    }
+
+    state.SetItemsProcessed(state.iterations());
 }
 
 BENCHMARK(BM_mutex)->Threads(1) \
@@ -105,5 +156,13 @@ BENCHMARK(BM_CAS_weak)->Threads(1) \
     ->Threads(8)
     ->Threads(16)
     ->UseRealTime();
+
+BENCHMARK(BM_spinlock)->Threads(1) \
+    ->Threads(2)
+    ->Threads(4)
+    ->Threads(8)
+    ->Threads(16)
+    ->UseRealTime();
+
 
 BENCHMARK_MAIN();

@@ -52,6 +52,12 @@ BM_CAS_weak/real_time/threads:2               67.4 ns         67.4 ns     155557
 BM_CAS_weak/real_time/threads:4                161 ns          161 ns      6700024
 BM_CAS_weak/real_time/threads:8                312 ns          259 ns      2133128
 BM_CAS_weak/real_time/threads:16               847 ns          621 ns       831248
+----------------
+BM_spinlock/real_time/threads:1               12.0 ns         12.0 ns     54728042 items_per_second=83.1811M/s
+BM_spinlock/real_time/threads:2               18.6 ns         12.3 ns     31716560 items_per_second=107.693M/s
+BM_spinlock/real_time/threads:4               44.3 ns         13.7 ns     13066224 items_per_second=90.2076M/s
+BM_spinlock/real_time/threads:8               92.4 ns         16.6 ns      8373872 items_per_second=86.5382M/s
+BM_spinlock/real_time/threads:16               198 ns         22.6 ns      3053664 items_per_second=80.8501M/s
 ```
 
 ### Results
