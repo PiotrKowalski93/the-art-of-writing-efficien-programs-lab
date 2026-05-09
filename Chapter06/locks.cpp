@@ -77,12 +77,6 @@ void BM_CAS_weak(benchmark::State& state){
 class Spinlock{
     public:
         void lock(){
-            // (1) flag_.load(std::memory_order_relaxed) - first, fast check if flag is locked
-            // (2) flag_.exchange(1, std::memory_order_acquire) - expensive, exchange = locking
-            // if (1) is 1 then exchange (2) is not done, faster
-
-            // if flag_.exchange(1, std::memory_order_acquire) returns 0, and load returns 0, then we locked
-            // we use relaxed during load, beacuse it is more efficient, we do not need mem sync
             for (int i = 0; flag_.load(std::memory_order_relaxed) || flag_.exchange(1, std::memory_order_acquire); ++i)
             {
                 if(i == 8){
@@ -97,7 +91,6 @@ class Spinlock{
         }
 
     private:
-        // 0 - free, 1 - locked
         std::atomic<unsigned int> flag_;
 
         void lock_sleep(){
@@ -117,10 +110,26 @@ void BM_spinlock(benchmark::State& state) {
     for (auto _ : state) {
         std::lock_guard<Spinlock> L(spinlock);
         benchmark::DoNotOptimize(++count_x);
+        // unlock on destructor
     }
 
     state.SetItemsProcessed(state.iterations());
 }
+
+// void BM_spinlock(benchmark::State& state) {
+//     if (state.thread_index() == 0) {
+//         count_x = 0;
+//     }
+
+//     for (auto _ : state) {
+//         std::lock_guard<Spinlock> L(spinlock);
+//         benchmark::DoNotOptimize(++count_x);
+//         // unlock on destructor
+//     }
+
+//     state.SetItemsProcessed(state.iterations());
+// }
+
 
 BENCHMARK(BM_mutex)->Threads(1) \
     ->Threads(2)
