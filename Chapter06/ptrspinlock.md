@@ -18,4 +18,5 @@
 exchange(pointer, nullptr)
 
 nullptr  -> resource taken
+
 pointer  -> resource available
