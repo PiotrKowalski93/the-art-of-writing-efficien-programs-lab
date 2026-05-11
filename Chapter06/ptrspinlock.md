@@ -8,11 +8,11 @@
 - Single shared resource/token patterns.
 
 **Tradeoffs:**
-+ Combines synchronization and pointer transfer.
-+ Avoids separate mutex + lookup/access step.
-+ Very cheap fast-path.
-- Hard to understand/maintain.
-- Easy to introduce races/UB.
+- :white_check_mark: Combines synchronization and pointer transfer.
+- :white_check_mark: Avoids separate mutex + lookup/access step.
+- :white_check_mark: Very cheap fast-path.
+- :x: Hard to understand/maintain.
+- :x: Easy to introduce races/UB.
 
 **Core idea:**
 exchange(pointer, nullptr)

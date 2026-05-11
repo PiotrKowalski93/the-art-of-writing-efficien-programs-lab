@@ -7,11 +7,11 @@
 - When lock hold time is smaller than context switch cost (Very short critical sections.)
 
 **Tradeoffs:**
-+ Extremely low overhead under low contention.
-+ No syscall/context switch.
-- Burns CPU while waiting.
-- Scales poorly under heavy contention.
-- Can hurt fairness/starve threads.
+- :white_check_mark: Extremely low overhead under low contention.
+- :white_check_mark: No syscall/context switch.
+- :x: Burns CPU while waiting.
+- :x: Scales poorly under heavy contention.
+- :x: Can hurt fairness/starve threads.
 
 **Core idea:**
 ```cpp
