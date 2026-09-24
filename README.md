@@ -37,13 +37,13 @@ The goal is not just to read, but to **understand performance at a low level** b
 
 ## Setup
 
-```
+```bash
 sudo apt install clang-17
 clang++-17 --version
 ```
 
 AVX2 Support check:
 
-```
+```bash
 lscpu | grep avx2
 ```
