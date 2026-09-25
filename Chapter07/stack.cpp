@@ -2,7 +2,7 @@
 #include <mutex>
 #include <iostream>
 #include <optional>
-#include "benchmark/benchmark.h"
+#include <benchmark/benchmark.h>
 
 using namespace std;
 
@@ -34,7 +34,7 @@ public:
 };
 
 mt_stack<int> s;
-void BM_stack(benchmark::State& state){
+void BM_mt_stack(benchmark::State& state){
     const size_t N = state.range(0);
 
     for(auto _ : state){
@@ -45,5 +45,10 @@ void BM_stack(benchmark::State& state){
     state.SetItemsProcessed(state.iterations()*N);
 }
 
-BENCHMARK(BM_stack)->Arg(1<<22);
+BENCHMARK(BM_mt_stack)->Arg(1024)
+    ->Threads(1)
+    ->Threads(2)
+    ->Threads(4)
+    ->Threads(8);
+
 BENCHMARK_MAIN();
