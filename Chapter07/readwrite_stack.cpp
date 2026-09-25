@@ -63,8 +63,13 @@ void BM_rw_top(benchmark::State& state)
     {
         benchmark::DoNotOptimize(s.top());
 
-        for(int i=0;i<1000;i++)
+        for(int i = 0; i < 1000; i++)
+        {
+            for(int j = 0; j < 1000; j++){
+                benchmark::DoNotOptimize(j);
+            }
             benchmark::DoNotOptimize(i);
+        }
     }
 }
 

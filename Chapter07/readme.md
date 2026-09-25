@@ -73,7 +73,7 @@ For read-heavy workloads with:
 
 * many concurrent readers
 * infrequent writers
-* non-trivial work inside the critical section
+* non-trivial work inside the critical section [!!]
 
 `std::shared_mutex` can provide significantly better scalability.
 
@@ -100,19 +100,19 @@ CPU Caches:
   L1 Instruction 32 KiB (x6)
   L2 Unified 256 KiB (x6)
   L3 Unified 12288 KiB (x1)
-Load Average: 0.18, 0.17, 0.10
+Load Average: 0.06, 0.03, 0.00
 ------------------------------------------------------------------------
 Benchmark                              Time             CPU   Iterations
 ------------------------------------------------------------------------
-BM_mutex_top/64/threads:1            236 ns          236 ns      2953072
-BM_mutex_top/64/threads:2            329 ns          328 ns      2192556
-BM_mutex_top/64/threads:4            402 ns          386 ns      1698252
-BM_mutex_top/64/threads:8           1210 ns         1014 ns       759224
+BM_mutex_top/64/threads:1            235 ns          235 ns      2925996
+BM_mutex_top/64/threads:2            294 ns          293 ns      2286262
+BM_mutex_top/64/threads:4            502 ns          461 ns      1473964
+BM_mutex_top/64/threads:8           1321 ns         1097 ns       694600
 ------------------------------------------------------------------------
-BM_mutex_stack/1024/threads:1      32407 ns        32407 ns        21510 items_per_second=31.5983M/s
-BM_mutex_stack/1024/threads:2     273163 ns       266341 ns         2674 items_per_second=7.68939M/s
-BM_mutex_stack/1024/threads:4     410795 ns       314698 ns         2112 items_per_second=13.0157M/s
-BM_mutex_stack/1024/threads:8    1379891 ns      1021122 ns          968 items_per_second=8.02255M/s
+BM_mutex_stack/1024/threads:1      32811 ns        32811 ns        21343 items_per_second=31.2094M/s
+BM_mutex_stack/1024/threads:2     316519 ns       309578 ns         2188 items_per_second=6.61545M/s
+BM_mutex_stack/1024/threads:4     448037 ns       336186 ns         2056 items_per_second=12.1837M/s
+BM_mutex_stack/1024/threads:8    1317090 ns       937966 ns          800 items_per_second=8.73379M/s
 ```
 
 ```bash
@@ -123,19 +123,19 @@ CPU Caches:
   L1 Instruction 32 KiB (x6)
   L2 Unified 256 KiB (x6)
   L3 Unified 12288 KiB (x1)
-Load Average: 0.22, 0.18, 0.10
+Load Average: 0.25, 0.08, 0.02
 -----------------------------------------------------------------------------
 Benchmark                                   Time             CPU   Iterations
 -----------------------------------------------------------------------------
-BM_rw_top/64/threads:1                    369 ns          369 ns      1875223
-BM_rw_top/64/threads:2                    421 ns          421 ns      1648220
-BM_rw_top/64/threads:4                    484 ns          484 ns      1459436
-BM_rw_top/64/threads:8                    632 ns          632 ns      1042632
+BM_rw_top/64/threads:1                    237 ns          237 ns      2874433
+BM_rw_top/64/threads:2                    323 ns          323 ns      2141068
+BM_rw_top/64/threads:4                    346 ns          346 ns      1686480
+BM_rw_top/64/threads:8                    711 ns          711 ns       968696
 -----------------------------------------------------------------------------
-BM_readwrite_stackk/1024/threads:1      45458 ns        45457 ns        15224 items_per_second=22.5266M/s
-BM_readwrite_stackk/1024/threads:2     435153 ns       429612 ns         1480 items_per_second=4.76709M/s
-BM_readwrite_stackk/1024/threads:4    1092798 ns       986059 ns          900 items_per_second=4.15391M/s
-BM_readwrite_stackk/1024/threads:8    2552594 ns      2099475 ns          464 items_per_second=3.90193M/s
+BM_readwrite_stackk/1024/threads:1      44832 ns        44832 ns        15483 items_per_second=22.8406M/s
+BM_readwrite_stackk/1024/threads:2     464654 ns       458591 ns         1480 items_per_second=4.46586M/s
+BM_readwrite_stackk/1024/threads:4    1122054 ns      1012518 ns          700 items_per_second=4.04536M/s
+BM_readwrite_stackk/1024/threads:8    2659988 ns      2209021 ns          424 items_per_second=3.70843M/s
 ```
 
 ## Build and Run
