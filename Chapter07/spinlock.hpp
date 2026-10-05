@@ -25,6 +25,8 @@ public:
     void lock() 
     {
         // Why we manually urnoll loop??
+        // When it stalls at the head of the ROB, the CPU will speculatively decode and execute subsequent iterations of the loop. 
+        // If the loop is not unrolled, the ROB rapidly fills up with loop counter increments (++spin_count) and conditional branch instructions...
         for(int spin_count = 0; lock_.load(std::memory_order_relaxed) || lock_.exchange(1, std::memory_order_acquire); ++spin_count)
         {
             if(!(lock_.load(std::memory_order_relaxed) || lock_.exchange(1, std::memory_order_acquire))) return;
