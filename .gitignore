@@ -73,3 +73,5 @@ Testing/
 # 
 Chapter07/readwrite_stack
 Chapter07/mutex_stack
+Chapter05/Memory Barriers in C++ (std::memory_order).md
+Chapter05/Memory Barriers in C++ (stdmemory_order).md

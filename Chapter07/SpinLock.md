@@ -178,3 +178,47 @@ thread runs again
 
 That overhead can be much larger than simply waiting for a short critical section to finish.
 However, spinlocks are dangerous when the critical section is long or contention is high because they can waste entire CPU cores.
+
+
+```bash
+Kowal@DESKTOP-9LDCA2E:~/source/the-art-of-writing-efficien-programs-lab/Chapter07$ ./spinlock
+2026-10-06T22:24:50+02:00
+Running ./spinlock
+Run on (12 X 4104.01 MHz CPU s)
+CPU Caches:
+  L1 Data 32 KiB (x6)
+  L1 Instruction 32 KiB (x6)
+  L2 Unified 256 KiB (x6)
+  L3 Unified 12288 KiB (x1)
+Load Average: 0.03, 0.03, 0.04
+-------------------------------------------------------------------------------------------------------------------------------------------
+Benchmark                                                                   Time             CPU   Iterations UserCounters...
+-------------------------------------------------------------------------------------------------------------------------------------------
+BM_SpinLock_Unrolled_Contention/threads:2                                12.1 ns         6.38 ns    109392690 items_per_second=313.47M/s
+BM_SpinLock_Unrolled_Contention/threads:4                                23.1 ns         6.47 ns    106857220 items_per_second=618.275M/s
+BM_SpinLock_Unrolled_Contention/threads:8                                42.7 ns         6.62 ns    101997512 items_per_second=1.20882G/s
+BM_SpinLock_Unrolled_Contention/threads:12                               65.6 ns         6.89 ns    100749384 items_per_second=1.74111G/s
+BM_SpinLock_Unrolled_Contention/threads:16                               89.1 ns         7.27 ns     96566960 items_per_second=2.19975G/s
+BM_SpinLock_Unrolled_Contention/threads:20                                115 ns         7.35 ns     91523420 items_per_second=2.72219G/s
+-------------------------------------------------------------------------------------------------------------------------------------------
+BM_SpinLock_Loop_Contention/threads:2                                    12.0 ns         6.76 ns    102710682 items_per_second=295.702M/s
+BM_SpinLock_Loop_Contention/threads:4                                    23.3 ns         7.78 ns     89660368 items_per_second=514.144M/s
+BM_SpinLock_Loop_Contention/threads:8                                    49.3 ns         10.7 ns     64939360 items_per_second=744.982M/s
+BM_SpinLock_Loop_Contention/threads:12                                   82.5 ns         15.1 ns     47224896 items_per_second=794.098M/s
+BM_SpinLock_Loop_Contention/threads:16                                    121 ns         28.6 ns     26081504 items_per_second=558.915M/s
+BM_SpinLock_Loop_Contention/threads:20                                    162 ns         35.1 ns     24657180 items_per_second=569.924M/s
+-------------------------------------------------------------------------------------------------------------------------------------------
+BM_SpinLock_Unrolled_Contention_longer_critical_section/threads:2         185 ns          124 ns      5656964 items_per_second=16.1716M/s
+BM_SpinLock_Unrolled_Contention_longer_critical_section/threads:4         335 ns          125 ns      5590988 items_per_second=31.9314M/s
+BM_SpinLock_Unrolled_Contention_longer_critical_section/threads:8         724 ns          128 ns      5334656 items_per_second=62.3351M/s
+BM_SpinLock_Unrolled_Contention_longer_critical_section/threads:12        982 ns          130 ns      5283996 items_per_second=92.0798M/s
+BM_SpinLock_Unrolled_Contention_longer_critical_section/threads:16       1797 ns          140 ns      1600000 items_per_second=114.031M/s
+BM_SpinLock_Unrolled_Contention_longer_critical_section/threads:20       2328 ns          148 ns      2000000 items_per_second=135.222M/s
+-------------------------------------------------------------------------------------------------------------------------------------------
+BM_SpinLock_Loop_Contention_longer_critical_section/threads:2             188 ns          126 ns      5454812 items_per_second=15.8215M/s
+BM_SpinLock_Loop_Contention_longer_critical_section/threads:4             342 ns          131 ns      5343816 items_per_second=30.4584M/s
+BM_SpinLock_Loop_Contention_longer_critical_section/threads:8             631 ns          140 ns      4928184 items_per_second=57.0546M/s
+BM_SpinLock_Loop_Contention_longer_critical_section/threads:12            988 ns          152 ns      4618728 items_per_second=78.727M/s
+BM_SpinLock_Loop_Contention_longer_critical_section/threads:16           1157 ns          172 ns      3851040 items_per_second=92.816M/s
+BM_SpinLock_Loop_Contention_longer_critical_section/threads:20           1426 ns          194 ns      2446260 items_per_second=103.254M/s
+```
