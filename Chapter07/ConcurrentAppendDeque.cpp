@@ -8,6 +8,9 @@ static const struct timespec spin_wait_long  = { 0, 10000001 };
 static inline void spin_wait_short_sleep() { nanosleep(&spin_wait_short, nullptr); }
 static inline void spin_wait_long_sleep()  { nanosleep(&spin_wait_long,  nullptr); }
 
+// ------------------------------------------------------------------
+// Spinlock for ConcurrentAppendDeque
+// ------------------------------------------------------------------
 class SpinLock {
 public:
     void lock() 
@@ -102,4 +105,64 @@ T& ConcurrentAppendDeque<T, BlockSize>::operator[](size_t index){
     size_t block_idx = index >> BlockShift;
     size_t local_idx = index & BlockMask;
     return dir[block_idx][local_idx];
+}
+
+template <typename T, size_t BlockSize>
+void ConcurrentAppendDeque<T, BlockSize>::resize(size_t new_size){
+    size_t current_size = size_.load(std::memory_order_acquire);
+    
+    // We do not allow shrinking
+    if(new_size <= current_size) return;
+
+    // Critical section begins
+    std::lock_guard lock(spinlock_);
+
+    // We need to be sure that nothing changed
+    current_size = size_.load(std::memory_order_acquire);
+
+    // ------ Double-Check Locking Pattern ------
+    // Other thread might resized que faster
+    if(new_size > current_size){
+        size_t new_capacity = (new_size + BlockMask) >> BlockShift;
+        if(new_capacity > capacity_){
+            reallocate_dictionary(new_capacity);
+        }
+
+        // Allocate new T** and move all pointers
+        T** dir = directory_.load(std::memory_order_relaxed);
+        for(size_t i = 0; i < current_size; ++i){
+            size_t block_idx = i >> BlockShift;
+            size_t offset = i & BlockMask;
+            // Block is not allocated
+            if(!dir[block_idx]){
+                dir[block_idx] = allocate_block();
+            }
+            std::construct_at(&dir[block_idx][offset]);
+        }
+        size_.store(new_size, std::memory_order_release);
+    }
+}
+
+template <typename T, size_t BlockSize>
+void ConcurrentAppendDeque<T, BlockSize>::reallocate_dictionary(size_t new_capacity){
+    T** new_dir = new T**[new_capacity];
+    // We can use relaxed because we are locked
+    T** old_dir = directory_.load(std::memory_order_relaxed);
+    
+    for(site_t i = 0; i < capacity_; ++i){
+        // 'moving' pointers to new collection of blocks
+        new_dir[i] = old_dir[i];
+    }
+
+    for(size_t i = capacity_; i < new_capacity; ++i){
+        // Empty new spaces
+        new_dir[i] = nullptr;
+    }
+
+    directory_.store(new_dir, std::memory_order_release);
+
+    if(old_dir){
+        retired_directories_.push_back(old_dir);
+    }
+    capacity_ = new_capacity;
 }
