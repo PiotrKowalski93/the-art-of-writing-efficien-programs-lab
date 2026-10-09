@@ -46,7 +46,9 @@ private:
     std::atomic<int> lock_{0};
 };
 
-
+// ------------------------------------------------------------------
+// Interface
+// ------------------------------------------------------------------
 template <typename T, size_t BlockSize = 2048>
 class ConcurrentAppendDeque {
     static constexpr size_t BlockMask = BlockSize - 1;
@@ -85,3 +87,19 @@ private:
     // We use mutable to be able to lock (modify) object state in const method
     mutable SpinLock spinlock_;
 };
+
+// ------------------------------------------------------------------
+// Implementation
+// ------------------------------------------------------------------
+template <typename T, size_t BlockSize>
+size_t ConcurrentAppendDeque<T, BlockSize>::size() {
+    return size_.load(std::memory_order_acquire);
+}
+
+template <typename T, size_t BlockSize>
+T& ConcurrentAppendDeque<T, BlockSize>::operator[](size_t index){
+    T** dir = directory_.load(std::memory_order_acquire);
+    size_t block_idx = index >> BlockShift;
+    size_t local_idx = index & BlockMask;
+    return dir[block_idx][local_idx];
+}
