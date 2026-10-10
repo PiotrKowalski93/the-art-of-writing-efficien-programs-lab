@@ -3,6 +3,7 @@
 #include <vector>
 #include <time.h>
 #include <unistd.h>
+#include <benchmark/benchmark.h>
 
 static const struct timespec spin_wait_short = { 0, 1 };
 static const struct timespec spin_wait_long  = { 0, 10000001 };
@@ -245,3 +246,78 @@ private:
 // Expectation: Perfect linear scaling up to the memory bandwidth or ALU (Arthmetic 
 // Logic Unit) limit, as threads write to strictly disjoint ranges without any 
 // atomic synchronization.
+template <typename DequeType>
+static void BM_AccessNoGrowth(benchmark::State& state) {
+    
+    // Assigning parameters to vars
+    size_t elements_per_thread = state.range(0);
+    int num_threads = state.range(1);
+    size_t total_elements = num_threads * elements_per_thread;
+
+    // Pre-allocate the deque so no resizes occur during the benchmark.
+    DequeType dq;
+    dq.resize(total_elements);
+
+    // num_threads workers + 1 main coordinator thread.
+    std::barrier sync_start(num_threads + 1);
+    std::barrier sync_end(num_threads + 1);
+
+     // Using std::jthread automatically requests a stop and joins on destruction.
+    std::vector<std::jthread> threads;
+    for (int t = 0; t < num_threads; ++t) {
+        threads.emplace_back([&, t](std::stop_token stoken) {
+            size_t start_idx = t * elements_per_thread;
+            size_t end_idx = start_idx + elements_per_thread;
+            
+            while (true) {
+                // Wait at the starting line for the main thread to resume timing.
+                sync_start.arrive_and_wait();
+                if (stoken.stop_requested()) break;
+                
+                // Payload: writes to a disjoint, per-thread index range, so no
+                // two threads touch the same element. This is what exposes the
+                // contrast between the two DequeType instantiations: for
+                // ConcurrentAppendDeque each dq[i] is a wait-free acquire load of
+                // the directory plus a plain store (no cross-thread coordination
+                // on disjoint indices), whereas SpinlockDeque takes and releases
+                // the global lock on every single element access -- the source of
+                // its contention collapse.
+                for (size_t i = start_idx; i < end_idx; ++i) {
+                    dq[i] = static_cast<int>(i);
+                }
+                
+                // Wait for all threads to finish before the next iteration.
+                sync_end.arrive_and_wait();
+            }
+        });
+    }
+    
+    for (auto _ : state) {
+        sync_start.arrive_and_wait(); // Unleash threads, barier from coordinator thread
+        sync_end.arrive_and_wait();   // Wait for completion, barier from coordinator thread
+    }
+    
+    // Cleanly shut down the thread pool
+    for (auto& thread : threads) {
+        thread.request_stop();
+    }
+
+    // Unblock them one last time so they see the stop request
+    sync_start.arrive_and_wait(); 
+    threads.clear();
+    
+    // Custom counter for easy-to-read throughput (e.g., 20 G/s)
+    state.counters["Elements/s"] = benchmark::Counter(state.iterations() * total_elements, benchmark::Counter::kIsRate);
+}
+
+BENCHMARK_TEMPLATE(BM_AccessNoGrowth, SpinlockDeque<int>)
+    ->ArgsProduct({
+        benchmark::CreateRange(1000, 100000, /*multi=*/10),
+        benchmark::CreateRange(1, num_cpu, /*multi=*/2)
+    })->UseRealTime();
+
+BENCHMARK_TEMPLATE(BM_AccessNoGrowth, ConcurrentAppendDeque<int, 1024>)
+    ->ArgsProduct({
+        benchmark::CreateRange(1000, 100000, /*multi=*/10),
+        benchmark::CreateRange(1, num_cpu, /*multi=*/2)
+    })->UseRealTime();
