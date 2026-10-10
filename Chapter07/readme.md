@@ -149,4 +149,6 @@ $ g++ -std=c++20 -g -O3 -mavx2 -Wall -pedantic -I$GBENCH_DIR/include readwrite_s
 $ ./readwrite_stack
 
 $ g++ -std=c++20 -g -O3 -mavx2 -Wall -pedantic -I$GBENCH_DIR/include spinlock.cpp $GBENCH_DIR/build/src/libbenchmark.a -pthread -lrt -lm -o spinlock
+
+$ g++ -std=c++20 -g -O3 -mavx2 -Wall -pedantic -I$GBENCH_DIR/include spinlock.cpp $GBENCH_DIR/build/src/libbenchmark.a -pthread -lrt -lm -o spinlock
 ```

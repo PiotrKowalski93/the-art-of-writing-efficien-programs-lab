@@ -3,6 +3,11 @@
 #include <vector>
 #include <time.h>
 #include <unistd.h>
+#include <deque>
+#include <barrier>
+#include <memory>
+#include <cstdint>
+#include <thread>
 #include <benchmark/benchmark.h>
 
 static const struct timespec spin_wait_short = { 0, 1 };
@@ -59,7 +64,7 @@ class ConcurrentAppendDeque {
     static constexpr size_t BlockMask = BlockSize - 1;
     static constexpr size_t BlockShift = std::countr_zero(BlockSize);
 
-    static_assert(BlockSize > 0 && (BlockSize & (BlockSize - 1) == 0), "BlockSize must by power of 2");
+    static_assert(BlockSize > 0 && ((BlockSize & (BlockSize - 1)) == 0), "BlockSize must by power of 2");
 
 public:
     ConcurrentAppendDeque() = default;
@@ -80,7 +85,7 @@ public:
 private:
     struct alignas(T) Block {
         unsigned char data[BlockSize * sizeof(T)];
-    }
+    };
     
     void reallocate_dictionary(size_t new_capacity);
     T* allocate_block();
@@ -91,6 +96,8 @@ private:
 
     // We use mutable to be able to lock (modify) object state in const method
     mutable SpinLock spinlock_;
+
+    
 };
 
 // ------------------------------------------------------------------
@@ -99,6 +106,39 @@ private:
 template <typename T, size_t BlockSize>
 size_t ConcurrentAppendDeque<T, BlockSize>::size() {
     return size_.load(std::memory_order_acquire);
+}
+
+template <typename T, size_t BlockSize>
+T* ConcurrentAppendDeque<T, BlockSize>::allocate_block(){
+    Block* b = new Block{};
+    return reinterpret_cast<T*>(b->data);
+}
+
+template <typename T, size_t BlockSize>
+ConcurrentAppendDeque<T, BlockSize>::~ConcurrentAppendDeque() {
+    size_t current_size = size_.load(std::memory_order_relaxed);
+    T** dir = directory_.load(std::memory_order_relaxed);
+
+    if(dir) {
+        for(size_t i = 0; i < current_size; ++i){
+            size_t block_idx = i >> BlockShift;
+            size_t local_idx = i & BlockMask;
+            dir[block_idx][local_idx].~T();
+        }
+
+        for(size_t i = 0; i < capacity_; ++i){
+            if (dir[i]) {
+                Block* b = reinterpret_cast<Block*>(dir[i]);
+                delete b;
+            }
+        }
+
+        delete[] dir;
+    }
+
+    for (T** retired : retired_directories_) {
+        delete[] retired;
+    }
 }
 
 template <typename T, size_t BlockSize>
@@ -147,11 +187,11 @@ void ConcurrentAppendDeque<T, BlockSize>::resize(size_t new_size){
 
 template <typename T, size_t BlockSize>
 void ConcurrentAppendDeque<T, BlockSize>::reallocate_dictionary(size_t new_capacity){
-    T** new_dir = new T**[new_capacity];
+    T** new_dir = new T*[new_capacity];
     // We can use relaxed because we are locked
     T** old_dir = directory_.load(std::memory_order_relaxed);
     
-    for(site_t i = 0; i < capacity_; ++i){
+    for(size_t i = 0; i < capacity_; ++i){
         // 'moving' pointers to new collection of blocks
         new_dir[i] = old_dir[i];
     }
@@ -312,12 +352,20 @@ static void BM_AccessNoGrowth(benchmark::State& state) {
 
 BENCHMARK_TEMPLATE(BM_AccessNoGrowth, SpinlockDeque<int>)
     ->ArgsProduct({
-        benchmark::CreateRange(1000, 100000, /*multi=*/10),
+        {100000},
         benchmark::CreateRange(1, num_cpu, /*multi=*/2)
     })->UseRealTime();
 
 BENCHMARK_TEMPLATE(BM_AccessNoGrowth, ConcurrentAppendDeque<int, 1024>)
     ->ArgsProduct({
-        benchmark::CreateRange(1000, 100000, /*multi=*/10),
+        {100000},
         benchmark::CreateRange(1, num_cpu, /*multi=*/2)
     })->UseRealTime();
+
+
+
+
+
+
+
+BENCHMARK_MAIN();
