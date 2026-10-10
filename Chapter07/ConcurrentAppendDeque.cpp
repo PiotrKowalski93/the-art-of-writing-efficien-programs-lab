@@ -2,6 +2,7 @@
 #include <atomic>
 #include <vector>
 #include <time.h>
+#include <unistd.h>
 
 static const struct timespec spin_wait_short = { 0, 1 };
 static const struct timespec spin_wait_long  = { 0, 10000001 };
@@ -166,3 +167,81 @@ void ConcurrentAppendDeque<T, BlockSize>::reallocate_dictionary(size_t new_capac
     }
     capacity_ = new_capacity;
 }
+
+
+// ------------------------------------------------------------------
+// Benchmarks
+// ------------------------------------------------------------------
+// Determine the maximum number of hardware threads available on this system.
+// This allows Google Benchmark to automatically scale the tests up to the
+// machine's physical limits (e.g., all 256 threads on a Granite Rapids server)
+// without hardcoding artificial ceilings.
+static const int num_cpu = sysconf(_SC_NPROCESSORS_CONF);
+
+
+// ============================================================================
+// SpinlockDeque Baseline
+// ============================================================================
+// A simple thread-safe wrapper around std::deque using a SpinLock.
+// This serves as the baseline to demonstrate the catastrophic performance
+// collapse (thundering herd) that occurs when using locks under high contention,
+// compared to the lock-free ConcurrentAppendDeque.
+template <typename T>
+class SpinlockDeque {
+public:
+    void push_back(const T& val) {
+        std::lock_guard<SpinLock> lock(spinlock_);
+        deque_.push_back(val);
+    }
+    
+    void resize(size_t new_size) {
+        std::lock_guard<SpinLock> lock(spinlock_);
+        if (new_size > deque_.size()) {
+            deque_.resize(new_size);
+        }
+    }
+
+    size_t size() const {
+        std::lock_guard<SpinLock> lock(spinlock_);
+        return deque_.size();
+    }
+    
+    T& operator[](size_t index) {
+        std::lock_guard<SpinLock> lock(spinlock_);
+        return deque_[index];
+    }
+    
+    const T& operator[](size_t index) const {
+        std::lock_guard<SpinLock> lock(spinlock_);
+        return deque_[index];
+    }
+    
+private:
+    mutable SpinLock spinlock_;
+    std::deque<T> deque_;
+};
+
+// ============================================================================
+// Benchmark Concurrency Design Principles
+// ============================================================================
+// These benchmarks do NOT use Google Benchmark's native MT (state.threads())
+// nor do they create std::threads inside the timing loop. Why?
+// 1. Thread Creation Overhead: Spawning threads takes significant OS time. If 
+//    done inside the loop, the benchmark measures OS latency, not container speed.
+// 2. Staggered Starts: Without precise synchronization, Thread 1 might finish its
+//    work before Thread 8 even wakes up. This destroys concurrent contention.
+//
+// Clean Shutdown: While `std::jthread` is often used simply as an RAII wrapper 
+// to avoid manual `.join()` calls, we actively use its cooperative cancellation 
+// mechanism (`std::stop_token`). The main thread calls `.request_stop()` on all 
+// threads and then unblocks the barrier one last time, allowing the workers to 
+// check `stoken.stop_requested()` and cleanly exit their infinite loops.
+
+
+// ============================================================================
+// Scenario 1: Element Access with No Growth
+// ============================================================================
+// Goal: Measure pure, wait-free scaling when the deque is already sized.
+// Expectation: Perfect linear scaling up to the memory bandwidth or ALU (Arthmetic 
+// Logic Unit) limit, as threads write to strictly disjoint ranges without any 
+// atomic synchronization.
