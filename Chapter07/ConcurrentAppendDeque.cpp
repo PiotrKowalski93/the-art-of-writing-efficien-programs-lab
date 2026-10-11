@@ -172,7 +172,7 @@ void ConcurrentAppendDeque<T, BlockSize>::resize(size_t new_size){
 
         // Allocate new T** and move all pointers
         T** dir = directory_.load(std::memory_order_relaxed);
-        for(size_t i = 0; i < current_size; ++i){
+        for(size_t i = current_size; i < new_size; ++i){
             size_t block_idx = i >> BlockShift;
             size_t offset = i & BlockMask;
             // Block is not allocated

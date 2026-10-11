@@ -1,0 +1,16 @@
+
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug ConcurrentAppendDeque",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/ConcurrentAppendDeque",
+            "cwd": "${workspaceFolder}",
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "preLaunchTask": "build-debug"
+        }
+    ]
+}
