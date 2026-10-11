@@ -350,22 +350,181 @@ static void BM_AccessNoGrowth(benchmark::State& state) {
     state.counters["Elements/s"] = benchmark::Counter(state.iterations() * total_elements, benchmark::Counter::kIsRate);
 }
 
+// ============================================================================
+// Scenario 2: Element Access with Size Check
+// ============================================================================
+// Goal: Measure the overhead of the `memory_order_acquire` penalty.
+// In reality, a reader thread must check `size()` before blindly indexing. 
+// This benchmark forces every thread to bounce the atomic `size_` cache line 
+// once per iteration before writing to its disjoint range.
+template <typename DequeType>
+static void BM_AccessNoGrowthWithSizeCheck(benchmark::State& state) {
+    size_t elements_per_thread = state.range(0);
+    int num_threads = state.range(1);
+    size_t total_elements = num_threads * elements_per_thread;
+
+    DequeType dq;
+    dq.resize(total_elements);
+
+    std::barrier sync_start(num_threads + 1);
+    std::barrier sync_end(num_threads + 1);
+
+    std::vector<std::jthread> threads;
+    for (int t = 0; t < num_threads; ++t) {
+        threads.emplace_back([&, t](std::stop_token stoken) {
+            size_t start_idx = t * elements_per_thread;
+            size_t end_idx = start_idx + elements_per_thread;
+            
+            while (true) {
+                sync_start.arrive_and_wait();
+                if (stoken.stop_requested()) break;
+                
+                if(dq.size() >= end_idx){
+                    for (size_t i = start_idx; i < end_idx; ++i) {
+                        dq[i] = static_cast<int>(i);
+                    }
+                }
+                
+                sync_end.arrive_and_wait();
+            }
+        });
+    }
+    
+    for (auto _ : state) {
+        sync_start.arrive_and_wait();
+        sync_end.arrive_and_wait();
+    }
+    
+    for (auto& thread : threads) {
+        thread.request_stop();
+    }
+
+    sync_start.arrive_and_wait(); 
+    threads.clear();
+
+    state.counters["Elements/s"] = benchmark::Counter(state.iterations() * total_elements, benchmark::Counter::kIsRate);
+}
+
+// ============================================================================
+// Scenario 3: Resize and Write
+// ============================================================================
+// Goal: Stress test the Double-Checked Locking Pattern (DCLP) and lock-free
+// contention during container expansion.
+// The deque starts empty. All threads simultaneously try to resize it to their
+// required capacity, guaranteeing a massive "Thundering Herd" collision.
+template <typename DequeType>
+static void BM_ResizeAndWrite(benchmark::State& state){
+    size_t elements_per_thread = state.range(0);
+    int num_threads = state.range(1);
+    
+    // Benchmark Balance Decision:
+    // If we only write each element once, the extremely slow heap allocations
+    // and spinlock contention inside `resize()` will completely dominate the time,
+    // masking the wait-free read/write throughput we actually care about.
+    // Real-world usage involves resizing rarely, and accessing data heavily.
+    // Therefore, we amplify the access workload by 100x to simulate this reality.
+    const int work_iterations = 100;
+    size_t total_elements = num_threads * elements_per_thread * work_iterations;
+    
+    std::unique_ptr<DequeType> dq;
+    
+    std::barrier sync_start(num_threads + 1);
+    std::barrier sync_end(num_threads + 1);
+    
+    std::vector<std::jthread> threads;
+    for (int t = 0; t < num_threads; ++t) {
+        threads.emplace_back([&, t](std::stop_token stoken) {
+            size_t start_idx = t * elements_per_thread;
+            size_t end_idx = start_idx + elements_per_thread;
+            
+            while (true) {
+                sync_start.arrive_and_wait();
+                if (stoken.stop_requested()) break;
+                
+                // The Thundering Herd hits the DCLP here. Only one thread
+                // will successfully grab the lock and allocate the blocks.
+                dq->resize(end_idx);
+                
+                // The amplified read/write workload. 
+                // We add `iter` to prevent compiler loop-unrolling optimizations.
+                for (int iter = 0; iter < work_iterations; ++iter) {
+                    for (size_t i = start_idx; i < end_idx; ++i) {
+                        (*dq)[i] = static_cast<int>(i + iter);
+                    }
+                }
+                
+                sync_end.arrive_and_wait();
+            }
+        });
+    }
+    
+    for (auto _ : state) {
+        // Pause the timer so we do not benchmark the teardown of the old
+        // deque or the instantiation of the new one. We strictly only want
+        // to measure the concurrent scaling.
+        state.PauseTiming();
+        dq = std::make_unique<DequeType>();
+        state.ResumeTiming();
+        
+        sync_start.arrive_and_wait(); // Unleash threads
+        sync_end.arrive_and_wait();   // Wait for completion
+    }
+    
+    for (auto& thread : threads) {
+        thread.request_stop();
+    }
+    sync_start.arrive_and_wait();
+    threads.clear();
+    
+    state.counters["Elements/s"] = benchmark::Counter(
+        state.iterations() * total_elements,
+        benchmark::Counter::kIsRate);
+}
+
+// ============================================================================
+// Scenario 1: Element Access with No Growth
+// ============================================================================
 BENCHMARK_TEMPLATE(BM_AccessNoGrowth, SpinlockDeque<int>)
     ->ArgsProduct({
         {100000},
-        benchmark::CreateRange(1, num_cpu, /*multi=*/2)
+        benchmark::CreateRange(1, 32, 2)
     })->UseRealTime();
 
 BENCHMARK_TEMPLATE(BM_AccessNoGrowth, ConcurrentAppendDeque<int, 1024>)
     ->ArgsProduct({
         {100000},
-        benchmark::CreateRange(1, num_cpu, /*multi=*/2)
+        benchmark::CreateRange(1, 32, 2)
     })->UseRealTime();
 
+// ============================================================================
+// Scenario 2: Element Access with Size Check
+// ============================================================================
+BENCHMARK_TEMPLATE(BM_AccessNoGrowthWithSizeCheck, SpinlockDeque<int>)
+    ->ArgsProduct({
+        {100000},
+        benchmark::CreateRange(1, 32, 2)
+    })->UseRealTime();
 
+BENCHMARK_TEMPLATE(BM_AccessNoGrowthWithSizeCheck, ConcurrentAppendDeque<int, 1024>)
+    ->ArgsProduct({
+        {100000},
+        benchmark::CreateRange(1, 32, 2)
+    })->UseRealTime();
 
+// ============================================================================
+// Scenario 3: Resize and Write
+// ============================================================================
+BENCHMARK_TEMPLATE(BM_ResizeAndWrite, SpinlockDeque<int>)
+    ->ArgsProduct({
+        {100000},
+        benchmark::CreateRange(1, 32, 2)
+    })->UseRealTime();
 
-
+BENCHMARK_TEMPLATE(BM_ResizeAndWrite, ConcurrentAppendDeque<int, 1024>)
+    ->ArgsProduct({
+        {100000},
+        benchmark::CreateRange(1, 32, 2)
+    })->UseRealTime();
 
 
 BENCHMARK_MAIN();
