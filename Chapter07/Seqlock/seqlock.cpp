@@ -58,7 +58,7 @@ private:
 };
 
 template <typename T>
-class SequentialMutexLock {
+class MutexLock {
 public:
     void write(const T& data){
         std::lock_guard g(lock_);
@@ -155,13 +155,8 @@ private:
     std::atomic<T> data_;
 };
 
-// ============================================================================
-// Baseline - mutex
-// ============================================================================
-// 1        Writers
-// 2/4/6/8  Readers
 template <typename LockType>
-static void BM_MarkedDataAccess(benchmark::State& state){
+static void BM_Locks(benchmark::State& state){
 
     uint8_t num_reader_threads = state.range(0);
     uint8_t num_writer_threads = state.range(1);
@@ -244,28 +239,28 @@ static void BM_MarkedDataAccess(benchmark::State& state){
 // ============================================================================
 // Baseline
 // ============================================================================
-BENCHMARK_TEMPLATE(BM_MarkedDataAccess, SequentialMutexLock<int64_t>)
+BENCHMARK_TEMPLATE(BM_Locks, MutexLock<int64_t>)
     ->ArgsProduct({
         benchmark::CreateRange(2, 10, 2),
         {1},
     })
     ->UseRealTime();
 
-BENCHMARK_TEMPLATE(BM_MarkedDataAccess, SequentialLock<int64_t>)
+BENCHMARK_TEMPLATE(BM_Locks, SequentialLock<int64_t>)
     ->ArgsProduct({
         benchmark::CreateRange(2, 10, 2),
         {1},
     })
     ->UseRealTime();
 
-BENCHMARK_TEMPLATE(BM_MarkedDataAccess, SpinLockWrapper<int64_t>)
+BENCHMARK_TEMPLATE(BM_Locks, SpinLockWrapper<int64_t>)
     ->ArgsProduct({
         benchmark::CreateRange(2, 10, 2),
         {1},
     })
     ->UseRealTime();
 
-BENCHMARK_TEMPLATE(BM_MarkedDataAccess, SequentialLockOneWriter<int64_t>)
+BENCHMARK_TEMPLATE(BM_Locks, SequentialLockOneWriter<int64_t>)
     ->ArgsProduct({
         benchmark::CreateRange(2, 10, 2),
         {1},
