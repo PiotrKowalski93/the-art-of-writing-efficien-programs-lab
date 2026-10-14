@@ -5,6 +5,8 @@
 #include <mutex>
 #include <queue>
 #include <optional>
+#include <type_traits>
+#include <utility>
 #include <benchmark/benchmark.h>
 
 static const struct timespec spin_wait_short = { 0, 1 };
@@ -119,7 +121,8 @@ public:
     RingQueue(size_t capacity, void* memory);
     ~RingQueue();
 
-    template <typename V> requires std::is_constructible_v<Value,V>
+    template <typename V> 
+        requires std::is_constructible_v<Value, V>
     bool push(Key key, V&& value);
     bool push(Key key) requires std::is_same_v<Value, void>;
     template <typename V = Value> requires (!std::is_same_v<void, V>)
@@ -135,7 +138,6 @@ public:
     };
 
     bool empty() const;
-
 
 private:
     // General case with Key and Value
@@ -185,7 +187,7 @@ bool RingQueue<Key, Value, NTRY>::push(Key key) requires std::is_same_v<Value, v
     }
 
     return false;
-}
+};
 
 template <typename Key, typename Value, size_t NTRY>
 Key RingQueue<Key, Value, NTRY>::pop() requires std::is_same_v<Value, void> {
@@ -195,9 +197,65 @@ Key RingQueue<Key, Value, NTRY>::pop() requires std::is_same_v<Value, void> {
     Key ret = slot.key.load(std::memory_order_acquire);
     if (ret == Key{}) return Key{};
     slot.key.store(Key{}, std::memory_order_release);
-    
+
     ++read_position_.i;
     return ret;
-}
+};
+
+template <typename Key, typename Value, size_t NTRY>
+template <typename V> 
+    requires std::is_constructible_v<Value, V>
+bool RingQueue<Key, Value, NTRY>::push(Key key, V&& value) {
+    std::unique_lock<SpinLock> l(write_position_.lock);
+    slot_t& slot = queue_[write_position_.i & & capacity_mask_];
+
+    for(size_t i = 0; i != NTRY; ++i){
+        if(slot.key.load(std::memory_order_acquire) == Key{} &&
+            !slot.busy_flag.load(std::memory_order_acquire) &&
+            slot.key.load(std::memory_order_acquire) == Key{})
+        {
+            slot.busy_flag.store(1, std::memory_order_release);
+            ++write_position_.i;
+            l.unlock();
+
+            ::new(&slot.value) Value(std::forward<V>(value));
+            slot.key.store(key, std::memory_order_release);
+            slot.busy_flag.store(0, std::memory_order_release);
+
+            return true;
+        }
+    }
+    return false;
+};
+
+template <typename Key, typename Value, size_t NTRY>
+template <typename V> requires (!std::is_same_v<void, V>)
+Key RingQueue<Key, Value, NTRY>::pop(V& value) {
+    std::unique_lock<SpinLock> l(read_position_.lock);
+    slot_t& slot = queue_[read_position_.i & & capacity_mask_];
+
+    while(true){
+        Key result = slot.key.load(std::memory_order_acquire);
+        
+        if(result == Key{}) return Key {};                      // Queue is empty
+
+        if(!slot.busy.load(std::memory_order_acquire) &&
+            slot.key.load(std::memory_order_acquire)){
+
+            slot.busy_flag.store(1, std::memory_order_release); // Lock slot in busy state
+            ++read_position_.i;                                 // Move position to next for other readers/consumers
+            l.unlock();
+
+            value = std::move(slot.value);
+            slot.value.~Value();
+
+            slot.key.store(Key{}, std::memory_order_release);   // Store empty value
+            slot.busy.store(0, std::memory_order_release);      // Release by flag
+            return result;
+        }
+
+        if(slot.busy.load(std::memory_order_acquire)) std::this_thread::yield();
+    }
+};
 
 BENCHMARK_MAIN();
