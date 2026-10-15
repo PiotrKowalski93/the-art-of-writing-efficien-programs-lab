@@ -7,12 +7,17 @@
 #include <optional>
 #include <type_traits>
 #include <utility>
+#include <cstring>
 #include <benchmark/benchmark.h>
 
 static const struct timespec spin_wait_short = { 0, 1 };
 static const struct timespec spin_wait_long  = { 0, 10000001 };
 static inline void spin_wait_short_sleep() { nanosleep(&spin_wait_short, nullptr); }
 static inline void spin_wait_long_sleep()  { nanosleep(&spin_wait_long,  nullptr); }
+
+// ------------------------------------------------------------------
+// Locks
+// ------------------------------------------------------------------
 
 class SpinLock {
 public:
@@ -112,24 +117,43 @@ public:
     }
 };
 
-// TODO: Possible optimalization is adding alignas to slots type
-// it might help with false sharing between producer and consumer on adjacent slots
+// ------------------------------------------------------------------
+// Implementation
+// ------------------------------------------------------------------
+// TODO: Implement ctor and dtor
 template <typename Key, typename Value = void, size_t NTRY = 8>  // Number of attempts to acquire a slot before giving up
 class RingQueue {
 public:
-    explicit RingQueue(size_t capacity);
-    RingQueue(size_t capacity, void* memory);
-    ~RingQueue();
+    //explicit RingQueue(size_t capacity);
+    RingQueue(void* memory, size_t bytes) : 
+        queue_(static_cast<slot_t*>(memory)),
+        capacity_(std::bit_floor(bytes/sizeof(slot_t))),
+        capacity_mask_(capacity_ - 1)
+    {
+        for (size_t i = 0; i < capacity_; ++i) {
+            std::construct_at(&queue_[i]);
+            queue_[i].key.store(Key{}, std::memory_order_relaxed);
+        }
+    }
 
-    template <typename V> 
-        requires std::is_constructible_v<Value, V>
+    ~RingQueue() { 
+        for (size_t i = read_position_.i; i != write_position_.i; ++i) {
+            slot_t& slot = queue_[i & capacity_mask_];
+            if constexpr (!std::is_same_v<Value, void>) {
+                slot.value.~Value();
+            }
+            slot.key.store(Key{}, std::memory_order_relaxed);
+        }
+    }
+
+    template <typename V> requires std::is_constructible_v<Value, V>
     bool push(Key key, V&& value);
     bool push(Key key) requires std::is_same_v<Value, void>;
     template <typename V = Value> requires (!std::is_same_v<void, V>)
     Key pop(V& value);
     Key pop() requires std::is_same_v<Value, void>;
     
-    size_t element_size() const { 
+    static constexpr size_t element_size() { 
         return sizeof(slot_t);  
     };
 
@@ -137,12 +161,22 @@ public:
         return capacity_;
     };
 
-    bool empty() const;
+    static constexpr size_t element_align() { 
+        return alignof(slot_t); 
+    }
+
+    bool empty() const {
+        std::unique_lock l(write_position_.lock);
+        slot_t& slot = queue_[write_position_.i & capacity_mask_];
+
+        Key key = slot.load(std::memory_order_relaxed);
+        return key == Key{};
+    }
 
 private:
     // General case with Key and Value
     template <typename K, typename V>
-    struct queue_slot_t{
+    struct alignas(256) queue_slot_t{
         std::atomic<K> key;
         std::atomic<int> busy_flag; // Guard for value contruction
         V value;
@@ -150,7 +184,7 @@ private:
 
     // For fast path we store only Key
     template <typename K>
-    struct queue_slot_t<K, void> {
+    struct alignas(256) queue_slot_t<K, void> {
         std::atomic<K> key;
     };
 
@@ -257,5 +291,52 @@ Key RingQueue<Key, Value, NTRY>::pop(V& value) {
         if(slot.busy.load(std::memory_order_acquire)) std::this_thread::yield();
     }
 };
+
+// ------------------------------------------------------------------
+// Benchmarks
+// ------------------------------------------------------------------
+
+void Benchmark_Throughput_SpinLock(benchmark::State& state) {
+    static RingQueue<int*> *queue{};
+
+    // We need power of 2
+    const size_t queue_size = state.range(0);
+    const size_t size_mask = queue_size - 1;
+    const size_t bytes = queue_size * RingQueue<int*>::element_size();
+
+    // First thread inits queue
+    if(state.thread_index() == 0) {
+        void* memory = ::operator new(bytes, std::align_val_t{RingQueue<int*>::element_align()});
+        queue = new RingQueue<int*>(memory, bytes);
+    }
+
+    // Vector with data to share
+    std::vector<int> vec(queue_size);
+    for(size_t i = 0; i < queue_size; ++i) vec[i] = i;
+
+    // Even threads are producers / uneven consumers
+    const bool producer = state.thread_index() & 1;
+
+    size_t p = 0, c = 0;
+    size_t cmiss = 0, pmiss = 0;
+
+    for(auto _ : state){
+        if(producer){
+            if(queue->push(&vec[p & size_mask])) ++p;
+                else ++pmiss;
+        }
+        else {
+            int* ptr = queue->pop();
+            if(ptr) ++c;
+                else ++cmiss;
+            benchmark::DoNotOptimize(ptr);
+        }
+    }
+};
+
+BENCHMARK(Benchmark_Throughput_SpinLock)
+    ->UseRealTime()
+    ->ThreadRange(2, 32)
+    ->Arg(1<<16);
 
 BENCHMARK_MAIN();
