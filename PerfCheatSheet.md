@@ -20,6 +20,12 @@ perf list
 perf list 'sched:*'
 ```
 
+## Analysis
+```bash
+# CPU resources usage in Top-Down analysis
+perf stat --topdown taskset -c 0 ./lab
+```
+
 ## Counting Events
 
 ```bash
