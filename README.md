@@ -22,6 +22,7 @@ The goal is not just to read, but to **understand performance at a low level** b
   * Branch prediction
   * Memory layout
   * Compiler optimizations
+* [Concurrency experiments](#concurrency) in Chapter 07
 
 ## Tech stack
 
@@ -29,6 +30,18 @@ The goal is not just to read, but to **understand performance at a low level** b
 * CMake
 * Google Benchmark
 * Linux, Ubuntu
+
+## Concurrency
+
+Concurrency examples and benchmarks are grouped in [Chapter 07](Chapter07/readme.md):
+
+* [SpinLock implementation and notes](Chapter07/SpinLock.md)
+* [Mutex stack benchmark](Chapter07/MutexStack/mutex_stack_benchmarks.cpp)
+* [Shared-mutex stack benchmark](Chapter07/SharedMutexStack/readwrite_stack_benchmarks.cpp)
+* [Seqlock benchmarks](Chapter07/Seqlock/locks_benchmarks.cpp)
+* [ConcurrentAppendDeque benchmark](Chapter07/ConcurrentAppendDeque/ConcurrentAppendDeque_benchmarks.cpp)
+* [RingQueue benchmark](Chapter07/RingQueue/ringqueue_benchmarks.cpp)
+* [Double-checked locking notes](<Chapter07/Double Checked Locking Pattern/Double-Checked Locking Pattern.md>)
 
 ## Reference
 
